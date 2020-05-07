@@ -9,7 +9,7 @@
 
 #pragma pack(push)
 #pragma pack(1)
-struct Head {//每个联系人开头附加
+struct tagHead {//每个联系人开头附加
 	unsigned char chItemSize;
 	bool bIsUsed;
 
@@ -19,17 +19,17 @@ struct Head {//每个联系人开头附加
 
 #pragma pack(push)
 #pragma pack(1)
-struct Contact {//联系人的数据表示
-    Head head;
+struct tagContact {//联系人的数据表示
+    tagHead head;
     unsigned long long ullPhone;
     char szName[1];
 };
 #pragma pack(pop)
 
-typedef Contact Item;
+typedef tagContact Item;
 
 
-struct WordInfo {//汉字个数和内容
+struct tagWordInfo {//汉字个数和内容
 	unsigned nCount : 16;
 	unsigned bLowByte : 8;
 	unsigned bHighByte : 8;
@@ -46,5 +46,6 @@ bool ModifyItem(int nIndex, const Item *pItem);
 void Defragment();
 void ShowInformation();
 void ShowEachCharInformation();
-void QueryStringByContent(const char *pSubString);
+void QueryItemByName(const char *pSubString);
+void QueryItemByPhone(const char *pSubString);
 void ShowAllItem();

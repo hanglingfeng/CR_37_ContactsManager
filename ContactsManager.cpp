@@ -17,10 +17,10 @@ static char szFileName[] = "data.bin";//数据文件，前16字节保存savingIndex, valid
 static FILE *fpData;
 
 #define TABLE_SIZE 100
-int g_itemIndexTable[TABLE_SIZE] = { -1 };//保存所有item在文件中的下标，遍历时发现-1，则停止遍历
-int g_nSavingIndex = 0;//当前可用位置的下标，新增item时保存在此处
-int g_nValidIndex = -1;//有效内容的下标
-int g_nDeprecatedIndex = -1;//弃用内容的下标
+static int g_itemIndexTable[TABLE_SIZE] = { -1 };//保存所有item在文件中的下标，遍历时发现-1，则停止遍历
+static int g_nSavingIndex = 0;//当前可用位置的下标，新增item时保存在此处
+//int g_nValidIndex = -1;//有效内容的下标
+//int g_nDeprecatedIndex = -1;//弃用内容的下标
 
 
 bool OpenDevice() {
@@ -44,13 +44,14 @@ void CloseDevice() {
 void InitializeIndexData() {
     bool bSuccess = true;
     if (OpenDevice()) {
-        if (fread(&g_nSavingIndex, sizeof(int), 1, fpData) == 1 &&
-            fread(&g_nValidIndex, sizeof(int), 1, fpData) == 1 &&
-            fread(&g_nDeprecatedIndex, sizeof(int), 1, fpData) == 1) {
+        if (fread(&g_nSavingIndex, sizeof(int), 1, fpData) == 1
+            //&& fread(&g_nValidIndex, sizeof(int), 1, fpData) == 1 
+            //&& fread(&g_nDeprecatedIndex, sizeof(int), 1, fpData) == 1
+            ) {
             if (g_nSavingIndex == 0) {//一个item都没有，例如第一次使用或删光数据
                 g_nSavingIndex = BIAS;//前BIAS个字节始终占用，不存item数据
-                g_nValidIndex = -1;
-                g_nDeprecatedIndex = -1;
+                //g_nValidIndex = -1;
+                //g_nDeprecatedIndex = -1;
             }
         }
         else {
@@ -209,7 +210,7 @@ void EmptyItemTable() {
 int GetFirstValidIndex(int nStartIndex) {
     bool bSuccess = true;
     Item item = { 0 };
-    Head head = { 0 };
+    tagHead head = { 0 };
 
     if (!OpenDevice()) {
         bSuccess = false;
@@ -254,7 +255,7 @@ ErrorProc:
 int GetFirstDeprecatedIndex(int nStartIndex) {
     bool bSuccess = true;
     Item item = { 0 };
-    Head head = { 0 };
+    tagHead head = { 0 };
 
     if (!OpenDevice()) {
         bSuccess = false;
@@ -338,7 +339,7 @@ void GetAllItem() {
         if (fseek(fpData, nValidIndex, SEEK_SET) != 0) {//定位到nValidIndex
             exit(EXIT_FAILURE);
         }
-        Head head = { 0 };
+        tagHead head = { 0 };
         if (fread(&head, sizeof(head), 1, fpData) != 1) {
             exit(EXIT_FAILURE);
         }
@@ -466,7 +467,7 @@ void Defragment() {
     if (fseek(fpData, nDeprecatedIndex, SEEK_SET) != 0) {//定位
         exit(EXIT_FAILURE);
     }
-    Head head = { 0 };
+    tagHead head = { 0 };
     if (fread(&head, sizeof(head), 1, fpData) != 1) {
         exit(EXIT_FAILURE);
     }
@@ -599,7 +600,7 @@ void ShowEachCharInformation() {
     int chAlphabet[26 + 6 + 26] = { 0 };//ASCII中Z和a之间有6个字符，将来遍历时直接忽略这6个下标
     int nCharCount = 0;//字母个数
     int nWordCount = 0;//汉字个数    
-    WordInfo words[INPUT_LENGTH * 10] = { 0 };
+    tagWordInfo words[INPUT_LENGTH * 10] = { 0 };
     int index = 0;//words的下标
     GetAllItem();
     if (!OpenDevice()) {
@@ -631,7 +632,7 @@ void ShowEachCharInformation() {
                 }
                 else {
                     ++nWordCount;
-                    WordInfo info = { 1,(unsigned)pItem->szName[j],(unsigned)pItem->szName[j + 1] };//大于等于128的一次读2个
+                    tagWordInfo info = { 1,(unsigned)pItem->szName[j],(unsigned)pItem->szName[j + 1] };//大于等于128的一次读2个
                     bool bExist = false;
                     for (size_t k = 0; k < sizeof(words) / sizeof(words[0]); k++) {
                         if (words[k].bLowByte == info.bLowByte && words[k].bHighByte == info.bHighByte) {
@@ -680,7 +681,7 @@ void ShowEachCharInformation() {
 //	const char *pSubString [in]要匹配的字符串
 //返回值：
 //	void
-void QueryStringByContent(const char *pSubString) {
+void QueryItemByName(const char *pSubString) {
     bool bFound = false;
     GetAllItem();
     if (!OpenDevice()) {
@@ -710,6 +711,47 @@ void QueryStringByContent(const char *pSubString) {
     free(pItem);
     pItem = NULL;
     if (!bFound) {
-        printf("未找到匹配的字符串\n");
+        printf("未找到匹配项\n");
+    }
+}
+
+//查寻字符串,支持模糊查找
+//参数：
+//	const char *pSubString [in]要匹配的字符串
+//返回值：
+//	void
+void QueryItemByPhone(const char *pSubString) {
+    bool bFound = false;
+    GetAllItem();
+    if (!OpenDevice()) {
+        exit(EXIT_FAILURE);
+    }
+
+    Item *pItem = (Item *)malloc(sizeof(Item) + INPUT_LENGTH);
+    if (!pItem) {
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < sizeof(g_itemIndexTable) / sizeof(g_itemIndexTable[0]); ++i) {
+        if (g_itemIndexTable[i] != -1) {
+            if (fseek(fpData, g_itemIndexTable[i], SEEK_SET) != 0) {//定位，准备读取validIndex对应的item
+                exit(EXIT_FAILURE);
+            }
+            if (fread(pItem, sizeof(Item) + INPUT_LENGTH, 1, fpData) != 1) {//读取一个item
+                exit(EXIT_FAILURE);
+            }
+            
+            char szBuff[21] = { 0 };
+            _ui64toa(pItem->ullPhone, szBuff, 10);
+            if (strstr(szBuff, pSubString)) {
+                bFound = true;
+                printf("下标：%x, 姓名：%s, 电话：%llu\n", g_itemIndexTable[i], pItem->szName, pItem->ullPhone);
+            }
+        }
+    }
+    free(pItem);
+    pItem = NULL;
+    if (!bFound) {
+        printf("未找到匹配项\n");
     }
 }

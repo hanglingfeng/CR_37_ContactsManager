@@ -126,11 +126,33 @@ void UserModifyItem() {
 	}
 }
 
-void UserQuaryString() {	
-	printf("请输入姓名,支持模糊匹配：");
+void UserQuaryItem() {
+	puts("1.根据姓名查询        2.根据电话查询");
+	printf("请输入序号：");
+	int ch = getchar();
+	EatLine();
+
+	char aryBuff[INPUT_LENGTH + 1] = { '\0' };
+	switch (ch) {
+	case '1':
+		printf("请输入查询内容,支持模糊匹配：");
+		ReadLine(aryBuff, sizeof(aryBuff) / sizeof(aryBuff[0]));
+		QueryItemByName(aryBuff);
+		break;
+	case '2':
+		printf("请输入查询内容,支持模糊匹配：");
+		ReadLine(aryBuff, sizeof(aryBuff) / sizeof(aryBuff[0]));
+		QueryItemByPhone(aryBuff);
+		break;
+	default:
+		printf("无此选项\n");
+		break;
+	}
+
+	/*printf("请输入查询内容,支持模糊匹配：");
 	char aryBuff[INPUT_LENGTH + 1] = { '\0' };
 	ReadLine(aryBuff, sizeof(aryBuff) / sizeof(aryBuff[0]));
-	QueryStringByContent(aryBuff);
+	QueryItemByName(aryBuff);*/
 }
 
 int main() {
@@ -153,7 +175,7 @@ int main() {
 			UserModifyItem();
 			break;
 		case '4':
-			UserQuaryString();
+			UserQuaryItem();
 			break;
 		case '5':
 			ShowEachCharInformation();
@@ -169,7 +191,7 @@ int main() {
 			puts("整理完毕");
 			break;
 		default:
-			printf("无此选项，请重新输入：");
+			printf("无此选项，请重新输入\n");
 			break;
 		}
 	}
